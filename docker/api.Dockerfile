@@ -27,9 +27,9 @@ COPY --from=builder /app/packages/shared ./packages/shared
 WORKDIR /app/apps/api
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3001/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+  CMD wget -q --tries=1 --spider http://localhost:3001/health || exit 1
 
 USER node
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["npx", "--no-install", "tsx", "src/index.ts"]

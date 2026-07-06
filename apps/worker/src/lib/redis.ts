@@ -9,8 +9,12 @@ export function getRedis(env: Env): Redis {
   if (cached) return cached;
   cached = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    retryStrategy: (times) => Math.min(times * 200, 5000),
+    reconnectOnError: () => true,
   });
   cached.on('error', (err) => {
+    if (!cached) return;
     console.error('[worker/redis] error:', err.message);
   });
   return cached;

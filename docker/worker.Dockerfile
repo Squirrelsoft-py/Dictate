@@ -27,4 +27,4 @@ COPY --from=builder /app/packages/shared ./packages/shared
 WORKDIR /app/apps/worker
 USER node
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["npx", "--no-install", "tsx", "src/index.ts"]
