@@ -18,7 +18,8 @@ ENV NEXT_PUBLIC_API_URL=http://localhost:3001
 ENV CI=true
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
-RUN pnpm --filter @dictate/web run build
+WORKDIR /app/apps/web
+RUN pnpm run build
 
 # ---- Runner ----
 FROM node:22-bookworm-slim AS runner
@@ -30,11 +31,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-COPY --from=builder /app/apps/web /app/apps/web
-COPY --from=builder /app/packages/shared /app/packages/shared
 COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/apps/web/.next /app/apps/web/.next
-COPY --from=builder /app/apps/web/public /app/apps/web/public
+COPY --from=builder /app/packages/shared /app/packages/shared
+COPY --from=builder /app/apps/web /app/apps/web
 
 WORKDIR /app/apps/web
 
@@ -45,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 USER node
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npx", "--no-install", "next", "start", "-p", "3000", "-H", "0.0.0.0"]
+CMD ["npx", "next", "start", "-p", "3000", "-H", "0.0.0.0"]
