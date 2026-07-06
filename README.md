@@ -16,26 +16,40 @@ Self-hosted meeting & lecture transcription with speaker-aware notes. Plaude-sty
 
 ## Quickstart
 
-### Fully self-hosted (recommended)
-
 ```bash
 git clone https://github.com/<your-org>/dictate
 cd dictate
 cp .env.example .env
-# Edit .env: set BETTER_AUTH_SECRET (`openssl rand -hex 32`),
-# and any cloud keys if you want fallback options.
-docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml up -d
+# Edit .env:
+#   - Set BETTER_AUTH_SECRET  (run: openssl rand -hex 32)
+#   - Add any cloud API keys you want as fallbacks (optional)
+#   - ASR_MODEL / ASR_ENGINE for the local whisper sidecar
+docker compose -f docker/docker-compose.yml up -d
 open http://localhost:3000
 ```
 
-### Cloud or remote sidecar
+Everything (web, api, worker, redis, whisper-asr-webservice) is in one compose file. Toggle providers per upload in the UI, or change defaults in `.env`.
 
-```bash
-docker compose -f docker/docker-compose.yml up -d
-# Edit .env:
-#   - LOCAL_ASR_ENDPOINT=http://your-remote-host:9000   (remote onerahmet)
-#   - or leave empty and set OPENAI_API_KEY / DEEPGRAM_API_KEY etc.
+### Cloud-only (no local whisper)
+
+Edit `.env`:
+```env
+ADMIN_ASR_PROVIDER=openai-whisper
+ADMIN_DIARIZATION_PROVIDER=deepgram
+ADMIN_LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+DEEPGRAM_API_KEY=...
+ANTHROPIC_API_KEY=...   # only if ADMIN_LLM_PROVIDER=anthropic
 ```
+Then `docker compose -f docker/docker-compose.yml up -d`.
+
+### Remote sidecar on another machine
+
+Edit `.env`:
+```env
+LOCAL_ASR_ENDPOINT=http://your-other-host:9000
+```
+Run onerahmet there once, and Dictate uses it remotely.
 
 ---
 
@@ -53,28 +67,18 @@ Browser → Next.js (:3000) → Hono API (:3001) → SQLite + Redis → BullMQ W
 
 ## Configuration
 
-All admin defaults come from env vars in `.env`. Users can override provider + model per upload.
+Everything lives in the single `.env` at the project root (copy from `.env.example`). Key groups:
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `LOCAL_ASR_ENDPOINT` | `http://asr:9000` | onerahmet/whisper-asr-webservice endpoint |
-| `ADMIN_ASR_PROVIDER` | `local` | `local`, `openai-whisper`, `groq`, `deepgram`, `assemblyai`, `openai-compatible` |
-| `ADMIN_DIARIZATION_PROVIDER` | `local` | `local`, `deepgram`, `assemblyai`, `none` |
-| `ADMIN_LLM_PROVIDER` | `openai-compat` | `openai-compat`, `openai`, `anthropic` |
-| `OPENAI_API_KEY` | | OpenAI |
-| `GROQ_API_KEY` | | Groq |
-| `DEEPGRAM_API_KEY` | | Deepgram |
-| `ASSEMBLYAI_API_KEY` | | AssemblyAI |
-| `ANTHROPIC_API_KEY` | | Anthropic |
-| `OPENAI_COMPAT_BASE_URL` | | Any OpenAI Chat Completions endpoint |
-| `OPENAI_COMPAT_API_KEY` | | |
-| `OPENAI_COMPAT_MODEL` | | e.g. `gpt-4o-mini`, `llama3.1:70b`, etc. |
-| `BETTER_AUTH_SECRET` | | `openssl rand -hex 32` |
-| `BETTER_AUTH_URL` | `http://localhost:3001` | |
-| `WEB_ORIGIN` | `http://localhost:3000` | CORS origin |
-| `DATA_DIR` | `/data` | SQLite + uploads |
-| `UPLOAD_MAX_BYTES` | `2147483648` | 2 GB |
-| `REDIS_URL` | `redis://redis:6379` | |
+| Group | Keys |
+|---|---|
+| Ports | `WEB_PORT`, `API_PORT`, `ASR_PORT` |
+| Provider defaults | `ADMIN_ASR_PROVIDER`, `ADMIN_DIARIZATION_PROVIDER`, `ADMIN_LLM_PROVIDER` |
+| Local Whisper sidecar | `LOCAL_ASR_ENDPOINT`, `ASR_MODEL`, `ASR_ENGINE`, `ASR_DIARIZATION` |
+| Cloud keys | `OPENAI_API_KEY`, `GROQ_API_KEY`, `DEEPGRAM_API_KEY`, `ASSEMBLYAI_API_KEY`, `ANTHROPIC_API_KEY` |
+| OpenAI-compatible LLM | `OPENAI_COMPAT_BASE_URL`, `OPENAI_COMPAT_API_KEY`, `OPENAI_COMPAT_MODEL` |
+| Auth | `BETTER_AUTH_SECRET` (generate with `openssl rand -hex 32`), `BETTER_AUTH_URL`, `WEB_ORIGIN` |
+| Storage | `DATA_DIR`, `UPLOAD_MAX_BYTES`, `UPLOAD_RETENTION_DAYS` |
+| Redis | `REDIS_URL` (defaults to bundled redis) |
 
 ---
 

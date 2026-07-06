@@ -271,40 +271,21 @@ Single-language monorepo (TypeScript everywhere), three small Docker images for 
 
 ---
 
-## 9. docker-compose.local.yml (additive on top of slim)
+## 9. docker-compose.yml (single, all-in-one)
 
 ```yaml
 services:
-  asr:
-    image: onerahmet/whisper-asr-webservice:latest
-    environment:
-      ASR_MODEL: large-v3
-      ASR_ENGINE: openai_whisper
-      ASR_DIARIZATION: "true"
-    ports: ["9000:9000"]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia, count: 1, capabilities: [gpu]
-    volumes:
-      - asr_models:/root/.cache/huggingface
-
-  api:
-    environment:
-      LOCAL_ASR_ENDPOINT: http://asr:9000
-
-  worker:
-    environment:
-      LOCAL_ASR_ENDPOINT: http://asr:9000
-
+  web, api, worker, redis, asr  # all defined together
 volumes:
-  asr_models:
+  dictate_data, redis_data, asr_models
 ```
 
-`docker compose -f docker-compose.local.yml up -d` boots the whole stack including self-hosted ASR + diarization.
+One compose file brings up the whole stack including the `onerahmet/whisper-asr-webservice` sidecar. GPU passthrough declared on the `asr` service (silently ignored on hosts without an NVIDIA runtime). Override anything in `.env`.
 
-`docker compose -f docker-compose.yml up -d` boots the slim stack; set `LOCAL_ASR_ENDPOINT` in `.env` to point at a remote onerahmet host, or leave empty and configure cloud provider keys.
+Usage:
+- `docker compose -f docker/docker-compose.yml up -d` — full self-hosted
+- Edit `.env` to switch defaults to cloud (`ADMIN_*_PROVIDER=openai-whisper` etc.) — the asr sidecar still runs but is unused
+- Edit `LOCAL_ASR_ENDPOINT` to point at a remote onerahmet host
 
 ---
 

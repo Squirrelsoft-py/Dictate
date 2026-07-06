@@ -8,13 +8,14 @@ services:
     image: ghcr.io/dictate/dictate-web:latest
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
       INTERNAL_API_URL: http://api:3001
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks: [dictate]
 
   api:
@@ -24,7 +25,7 @@ services:
     image: ghcr.io/dictate/dictate-api:latest
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "${API_PORT:-3001}:3001"
     env_file:
       - ../.env
     environment:
@@ -33,10 +34,29 @@ services:
       REDIS_URL: redis://redis:6379
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      LOCAL_ASR_ENDPOINT: ${LOCAL_ASR_ENDPOINT:-http://asr:9000}
+      ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-local}
+      ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-local}
+      ADMIN_LLM_PROVIDER: ${ADMIN_LLM_PROVIDER:-openai-compat}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      ASSEMBLYAI_API_KEY: ${ASSEMBLYAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - dictate_data:/data
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks: [dictate]
 
   worker:
@@ -51,22 +71,71 @@ services:
       NODE_ENV: production
       DATA_DIR: /data
       REDIS_URL: redis://redis:6379
+      LOCAL_ASR_ENDPOINT: ${LOCAL_ASR_ENDPOINT:-http://asr:9000}
+      ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-local}
+      ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-local}
+      ADMIN_LLM_PROVIDER: ${ADMIN_LLM_PROVIDER:-openai-compat}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      ASSEMBLYAI_API_KEY: ${ASSEMBLYAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - dictate_data:/data
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+      asr:
+        condition: service_started
     networks: [dictate]
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks: [dictate]
+
+  asr:
+    image: onerahmet/whisper-asr-webservice:latest
+    restart: unless-stopped
+    ports:
+      - "${ASR_PORT:-9000}:9000"
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-large-v3}
+      ASR_ENGINE: ${ASR_ENGINE:-openai_whisper}
+      ASR_DIARIZATION: ${ASR_DIARIZATION:-true}
+    volumes:
+      - asr_models:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks: [dictate]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 volumes:
   dictate_data:
   redis_data:
+  asr_models:
 
 networks:
   dictate:
