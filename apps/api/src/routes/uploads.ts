@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { existsSync, mkdirSync, createWriteStream } from 'node:fs';
-import { stat, unlink, readdir, rm } from 'node:fs/promises';
+import { unlink } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { nanoid } from 'nanoid';
 import {

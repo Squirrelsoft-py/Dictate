@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { basename, extname } from 'node:path';
+import { basename } from 'node:path';
 import { FormData, fetch as undiciFetch } from 'undici';
 import type { ASRProvider, ASRInput, ASROutput } from '@dictate/shared/providers';
 import type { Segment } from '@dictate/shared/schemas';

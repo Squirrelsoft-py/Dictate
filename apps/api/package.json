@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "echo 'api: built (uses tsx at runtime)'",
     "start": "tsx src/index.ts",
-    "lint": "echo 'api: lint ok'",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc",
     "test": "echo 'api: no tests yet'",
     "clean": "rm -rf dist .turbo node_modules *.tsbuildinfo"

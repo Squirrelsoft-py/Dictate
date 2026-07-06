@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Tag as TagIcon, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { Plus, Search, Tag as TagIcon, LogOut } from 'lucide-react';
 import { useSession, signOut } from '@/lib/auth-client';
 import { api, type Upload } from '@/lib/api';
 import { formatDate, formatBytes, cn } from '@/lib/utils';
@@ -37,7 +37,6 @@ export default function LibraryPage() {
 
   useEffect(() => {
     if (session) refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, selectedTag]);
 
   const filtered = uploads.filter((u) =>
@@ -147,7 +146,7 @@ export default function LibraryPage() {
         ) : (
           <div className="grid gap-3">
             {filtered.map((u) => (
-              <UploadCard key={u.id} upload={u} onChanged={refresh} />
+              <UploadCard key={u.id} upload={u} />
             ))}
           </div>
         )}
@@ -165,7 +164,7 @@ export default function LibraryPage() {
   );
 }
 
-function UploadCard({ upload, onChanged }: { upload: Upload; onChanged: () => void }) {
+function UploadCard({ upload }: { upload: Upload }) {
   const router = useRouter();
   return (
     <button

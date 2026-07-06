@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { requireAuth, type Variables } from '../middleware/auth.js';
 import { streamSSE } from 'hono/streaming';
 import type { Env } from '../lib/env.js';
-import type { Redis } from 'ioredis';
 import { getRedis } from '../lib/redis.js';
 import { progressChannel } from '../lib/queue.js';
 import { eq, and } from 'drizzle-orm';

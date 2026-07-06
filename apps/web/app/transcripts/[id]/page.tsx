@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -12,7 +12,6 @@ import {
   ListChecks,
   Lightbulb,
   GitBranch,
-  Tag as TagIcon,
 } from 'lucide-react';
 import { api, type UploadDetail, type Segment } from '@/lib/api';
 import { formatTime, cn } from '@/lib/utils';
@@ -40,7 +39,6 @@ export default function TranscriptPage() {
   useEffect(() => {
     if (!params.id) return;
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   // SSE for live progress
@@ -52,7 +50,6 @@ export default function TranscriptPage() {
       refresh();
     });
     return () => es.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id, data?.upload.status]);
 
   async function refresh() {

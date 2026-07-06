@@ -13,7 +13,7 @@
     "./db": "./src/db/index.ts"
   },
   "scripts": {
-    "lint": "echo 'shared: lint ok'",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc",
     "test": "echo 'shared: no tests yet'",
     "clean": "rm -rf dist .turbo node_modules *.tsbuildinfo"

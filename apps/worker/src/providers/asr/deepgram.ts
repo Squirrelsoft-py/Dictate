@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { FormData, fetch as undiciFetch } from 'undici';
+import { fetch as undiciFetch } from 'undici';
 import type { ASRProvider, ASRInput, ASROutput } from '@dictate/shared/providers';
 import type { Segment, SpeakerTurn } from '@dictate/shared/schemas';
 

@@ -1,5 +1,4 @@
 import type { Env } from '../lib/env.js';
-import { loadEnv } from '../lib/env.js';
 import { getDb, schema } from '../lib/db.js';
 import { getRedis, publishProgress } from '../lib/redis.js';
 import { Worker, type Job } from 'bullmq';
@@ -65,7 +64,7 @@ export function startWorker(env: Env) {
         });
 
         let segments: Segment[] = asrResult.segments;
-        let inlineTurns: SpeakerTurn[] | undefined = asrResult.turns;
+        const inlineTurns: SpeakerTurn[] | undefined = asrResult.turns;
 
         // 2) Diarization (only if ASR didn't already return turns)
         let turns: SpeakerTurn[] = inlineTurns ?? [];
@@ -232,7 +231,7 @@ export function startWorker(env: Env) {
 
         // Try to detect duration
         try {
-          const st = await stat(data.filePath);
+          await stat(data.filePath);
           await db
             .update(schema.uploads)
             .set({
