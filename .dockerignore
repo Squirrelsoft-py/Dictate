@@ -1,0 +1,17 @@
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.git
+**/.github
+**/coverage
+**/*.log
+**/.DS_Store
+**/data
+**/uploads
+README.md
+PLAN.md
+session-start-*.md
+.env
+.env.local
+.env.*.local

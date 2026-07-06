@@ -17,6 +17,7 @@ COPY apps/web ./apps/web
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=http://localhost:3001
 ENV CI=true
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
 RUN pnpm --filter @dictate/web run build
 
