@@ -10,6 +10,7 @@ export function getRedis(env: Env): Redis {
   cached = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    enableOfflineQueue: true,
     retryStrategy: (times) => Math.min(times * 200, 5000),
     reconnectOnError: () => true,
   });
@@ -19,6 +20,25 @@ export function getRedis(env: Env): Redis {
   });
   return cached;
 }
+
+process.on('uncaughtException', (err: any) => {
+  if (err?.name === 'ReplyError' || err?.name === 'AbortError') {
+    console.error('[worker/redis] unhandled:', err.message);
+    return;
+  }
+  const code = err?.code;
+  if (
+    code === 'ECONNREFUSED' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ENOTFOUND' ||
+    code === 'ECONNRESET' ||
+    code === 'EPIPE'
+  ) {
+    console.error('[worker/redis] connection error:', code, err?.message);
+    return;
+  }
+  throw err;
+});
 
 export function progressChannel(uploadId: string) {
   return `${JOB_PROGRESS_CHANNEL_PREFIX}${uploadId}${JOB_PROGRESS_CHANNEL_SUFFIX}`;

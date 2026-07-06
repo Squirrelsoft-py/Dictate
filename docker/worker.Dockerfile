@@ -1,5 +1,6 @@
 # ---- Builder ----
 FROM node:22-alpine AS builder
+ENV COREPACK_INTEGRITY_KEYS=0
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
@@ -12,19 +13,17 @@ RUN pnpm install --frozen-lockfile=false
 COPY packages/shared ./packages/shared
 COPY apps/worker ./apps/worker
 
+RUN pnpm deploy --filter @dictate/worker /tmp/deps
+
 # ---- Runner ----
 FROM node:22-alpine AS runner
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init bash
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/worker/package.json ./apps/worker/package.json
-COPY --from=builder /app/apps/worker/src ./apps/worker/src
-COPY --from=builder /app/packages/shared ./packages/shared
+COPY --from=builder /tmp/deps /app
 
-WORKDIR /app/apps/worker
 USER node
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["npx", "--no-install", "tsx", "src/index.ts"]

@@ -1,5 +1,6 @@
 # ---- Builder ----
 FROM node:22-bookworm-slim AS builder
+ENV COREPACK_INTEGRITY_KEYS=0
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
