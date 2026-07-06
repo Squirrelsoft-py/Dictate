@@ -3,6 +3,7 @@ FROM node:22-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
+# Copy everything first to maximize cache hits
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/shared/tsconfig.json ./packages/shared/
@@ -15,6 +16,8 @@ COPY apps/web ./apps/web
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=http://localhost:3001
+ENV CI=true
+
 RUN pnpm --filter @dictate/web run build
 
 # ---- Runner ----
