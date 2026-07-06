@@ -101,7 +101,7 @@ services:
     networks: [dictate]
 
   asr:
-    image: onerahmet/openai-whisper-asr-webservice:latest
+    image: ${ASR_IMAGE:-onerahmet/openai-whisper-asr-webservice:latest}
     restart: unless-stopped
     ports:
       - "${ASR_PORT:-9000}:9000"
@@ -118,13 +118,6 @@ services:
       retries: 3
       start_period: 60s
     networks: [dictate]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
 volumes:
   dictate_data:

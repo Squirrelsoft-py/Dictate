@@ -1,0 +1,21 @@
+# GPU override for the asr sidecar.
+# Switches to the GPU image tag and adds an NVIDIA device reservation
+# so docker compose / Dockge / bake wires up the GPU correctly.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Requirements:
+#   - nvidia-container-toolkit installed on the host
+#   - an NVIDIA GPU visible to Docker
+
+services:
+  asr:
+    image: onerahmet/openai-whisper-asr-webservice:latest-gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

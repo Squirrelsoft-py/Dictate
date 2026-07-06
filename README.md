@@ -40,6 +40,16 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 
 `docker-compose.build.yml` is an override that adds `build:` blocks so the three Dictate images are compiled locally instead of pulled.
 
+### GPU for the Whisper sidecar
+
+Default is CPU only — works on any host. To enable GPU acceleration for the asr sidecar:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
+
+`docker-compose.gpu.yml` switches the image to `latest-gpu` and adds an NVIDIA device reservation. Requires `nvidia-container-toolkit` on the host.
+
 ### Dockge / Portainer / Cosmos
 
 The compose file is fully self-contained — every variable has a `${VAR:-default}` fallback, so the stack boots with no env file at all. Paste values into the stack's **Environment** field. The shipped `docker/.env` has defaults; copy it next to the compose file or edit `docker/.env.example` and rename to `.env`.
