@@ -103,7 +103,7 @@ services:
     networks: [dictate]
 
   asr:
-    image: onerahmet/whisper-asr-webservice:latest
+    image: onerahmet/openai-whisper-asr-webservice:latest
     restart: unless-stopped
     ports:
       - "${ASR_PORT:-9000}:9000"

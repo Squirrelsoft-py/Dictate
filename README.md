@@ -16,19 +16,25 @@ Self-hosted meeting & lecture transcription with speaker-aware notes. Plaude-sty
 
 ## Quickstart
 
+### Bare docker compose
+
 ```bash
 git clone https://github.com/<your-org>/dictate
-cd dictate
+cd dictate/docker
 cp .env.example .env
 # Edit .env:
 #   - Set BETTER_AUTH_SECRET  (run: openssl rand -hex 32)
 #   - Add any cloud API keys you want as fallbacks (optional)
 #   - ASR_MODEL / ASR_ENGINE for the local whisper sidecar
-docker compose -f docker/docker-compose.yml up -d
+docker compose up -d
 open http://localhost:3000
 ```
 
 Everything (web, api, worker, redis, whisper-asr-webservice) is in one compose file. Toggle providers per upload in the UI, or change defaults in `.env`.
+
+### Dockge / Portainer / Cosmos
+
+The `docker-compose.yml` is fully self-contained — every variable has a `${VAR:-default}` fallback so the stack will boot with no env file at all. Paste values into the stack's **Environment** field in your UI of choice. The shipped `docker/.env.example` is a starter you can copy to `docker/.env` if your UI expects an env file on disk.
 
 ### Cloud-only (no local whisper)
 
