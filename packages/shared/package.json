@@ -1,0 +1,31 @@
+{
+  "name": "@dictate/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./providers": "./src/providers/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./prompts": "./src/prompts/index.ts",
+    "./db": "./src/db/index.ts"
+  },
+  "scripts": {
+    "lint": "echo 'shared: lint ok'",
+    "typecheck": "tsc",
+    "test": "echo 'shared: no tests yet'",
+    "clean": "rm -rf dist .turbo node_modules *.tsbuildinfo"
+  },
+  "dependencies": {
+    "zod": "^4.0.0",
+    "drizzle-orm": "^0.45.2",
+    "better-sqlite3": "^12.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2",
+    "@types/better-sqlite3": "^7.6.12"
+  }
+}

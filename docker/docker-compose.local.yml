@@ -1,0 +1,32 @@
+name: dictate-local
+
+services:
+  asr:
+    image: onerahmet/whisper-asr-webservice:latest
+    restart: unless-stopped
+    environment:
+      ASR_MODEL: large-v3
+      ASR_ENGINE: openai_whisper
+    ports:
+      - "9000:9000"
+    volumes:
+      - asr_models:/root/.cache/huggingface
+    networks: [dictate]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  api:
+    environment:
+      LOCAL_ASR_ENDPOINT: http://asr:9000
+
+  worker:
+    environment:
+      LOCAL_ASR_ENDPOINT: http://asr:9000
+
+volumes:
+  asr_models:

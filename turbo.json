@@ -1,0 +1,49 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalEnv": [
+    "NODE_ENV",
+    "DATA_DIR",
+    "REDIS_URL",
+    "LOCAL_ASR_ENDPOINT",
+    "ADMIN_ASR_PROVIDER",
+    "ADMIN_DIARIZATION_PROVIDER",
+    "ADMIN_LLM_PROVIDER",
+    "OPENAI_API_KEY",
+    "GROQ_API_KEY",
+    "DEEPGRAM_API_KEY",
+    "ASSEMBLYAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_COMPAT_BASE_URL",
+    "OPENAI_COMPAT_API_KEY",
+    "OPENAI_COMPAT_MODEL",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "WEB_ORIGIN",
+    "UPLOAD_MAX_BYTES",
+    "UPLOAD_RETENTION_DAYS"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

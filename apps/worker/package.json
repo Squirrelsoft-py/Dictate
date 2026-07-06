@@ -1,0 +1,33 @@
+{
+  "name": "@dictate/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "echo 'worker: built (uses tsx at runtime)'",
+    "start": "tsx src/index.ts",
+    "lint": "echo 'worker: lint ok'",
+    "typecheck": "tsc",
+    "test": "echo 'worker: no tests yet'",
+    "clean": "rm -rf dist .turbo node_modules *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@dictate/shared": "workspace:*",
+    "bullmq": "^5.34.5",
+    "ioredis": "^5.4.2",
+    "drizzle-orm": "^0.45.2",
+    "better-sqlite3": "^12.0.0",
+    "nanoid": "^5.0.9",
+    "openai": "^4.77.0",
+    "@anthropic-ai/sdk": "^0.32.1",
+    "zod": "^4.0.0",
+    "undici": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
