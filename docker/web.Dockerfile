@@ -1,9 +1,8 @@
 # ---- Builder ----
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
-# Copy everything first to maximize cache hits
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/shared/tsconfig.json ./packages/shared/
@@ -22,8 +21,8 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN pnpm --filter @dictate/web run build
 
 # ---- Runner ----
-FROM node:22-alpine AS runner
-RUN apk add --no-cache dumb-init wget
+FROM node:22-bookworm-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init wget && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 ENV NODE_ENV=production
