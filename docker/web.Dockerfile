@@ -28,10 +28,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-COPY --from=builder /app/apps/web/public ./public
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./.next/static
+COPY --from=builder /app/apps/web /app/apps/web
+COPY --from=builder /app/packages/shared /app/packages/shared
+COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/apps/web/.next /app/apps/web/.next
+COPY --from=builder /app/apps/web/public /app/apps/web/public
+
+WORKDIR /app/apps/web
 
 EXPOSE 3000
 
@@ -40,4 +45,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 USER node
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "server.js"]
+CMD ["npx", "--no-install", "next", "start", "-p", "3000", "-H", "0.0.0.0"]

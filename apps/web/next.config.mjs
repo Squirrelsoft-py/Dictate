@@ -9,6 +9,5 @@ const nextConfig = {
       { source: '/auth/:path*', destination: `${apiUrl}/auth/:path*` },
     ];
   },
-  output: 'standalone',
 };
 export default nextConfig;
