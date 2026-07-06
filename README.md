@@ -16,6 +16,8 @@ Self-hosted meeting & lecture transcription with speaker-aware notes. Plaude-sty
 
 ## Quickstart
 
+`docker/docker-compose.yml` is **self-contained** — it pulls prebuilt images from GHCR by default, so no source code is needed. Works in Docker CLI, Dockge, Portainer, Cosmos, etc.
+
 ### Bare docker compose
 
 ```bash
@@ -25,16 +27,29 @@ cp .env.example .env
 # Edit .env:
 #   - Set BETTER_AUTH_SECRET  (run: openssl rand -hex 32)
 #   - Add any cloud API keys you want as fallbacks (optional)
-#   - ASR_MODEL / ASR_ENGINE for the local whisper sidecar
 docker compose up -d
 open http://localhost:3000
 ```
 
-Everything (web, api, worker, redis, whisper-asr-webservice) is in one compose file. Toggle providers per upload in the UI, or change defaults in `.env`.
+### Build from source
+
+```bash
+cd dictate/docker
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+`docker-compose.build.yml` is an override that adds `build:` blocks so the three Dictate images are compiled locally instead of pulled.
 
 ### Dockge / Portainer / Cosmos
 
-The `docker-compose.yml` is fully self-contained — every variable has a `${VAR:-default}` fallback so the stack will boot with no env file at all. Paste values into the stack's **Environment** field in your UI of choice. The shipped `docker/.env.example` is a starter you can copy to `docker/.env` if your UI expects an env file on disk.
+The compose file is fully self-contained — every variable has a `${VAR:-default}` fallback, so the stack boots with no env file at all. Paste values into the stack's **Environment** field. The shipped `docker/.env` has defaults; copy it next to the compose file or edit `docker/.env.example` and rename to `.env`.
+
+To pin a different image tag, set in `.env`:
+```env
+WEB_IMAGE=ghcr.io/squirrelsoft-py/dictate-web:v1.2.3
+API_IMAGE=ghcr.io/squirrelsoft-py/dictate-api:v1.2.3
+WORKER_IMAGE=ghcr.io/squirrelsoft-py/dictate-worker:v1.2.3
+```
 
 ### Cloud-only (no local whisper)
 
