@@ -138,6 +138,39 @@ Stack:
 
 ---
 
+## Troubleshooting
+
+**Containers restart / `unhealthy` with no useful error**
+Check disk space first — Redis can't write its AOF file, the asr sidecar can't load Whisper models, image pulls silently fail, all when the disk is full:
+```bash
+df -h /
+docker system df
+```
+
+Minimum free space depends on which models you use:
+- **CPU only, `small` or `medium` Whisper**: ~10 GB free
+- **CPU `large-v3`**: ~15 GB free
+- **GPU `large-v3`**: ~10 GB free (CUDA build is leaner)
+
+Clean up old Docker artifacts if needed:
+```bash
+docker system prune -a       # remove unused images/containers/networks
+docker volume prune          # remove unused volumes (deletes data!)
+```
+
+**`asr` healthcheck timing out at startup**
+Whisper downloads the model on first start (~3 GB for `large-v3`). The first boot can take 1-3 minutes. `start_period` is set to 60s; if your network is slow, increase `ASR_MODEL` to a smaller variant (`medium`, `small`) for faster first-run.
+
+**`dictate-redis-1` unhealthy after restart with AOF error**
+Stale AOF file. Wipe the Redis volume (loses any in-flight jobs but no other data):
+```bash
+docker compose down
+docker volume rm dictate_redis_data
+docker compose up -d
+```
+
+---
+
 ## CI/CD
 
 - `.github/workflows/ci.yml` — lint + typecheck + build on PRs
