@@ -13,6 +13,8 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
+    dns:
+      - 127.0.0.11
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
@@ -27,6 +29,8 @@ services:
     restart: unless-stopped
     ports:
       - "${API_PORT:-3001}:3001"
+    dns:
+      - 127.0.0.11
     environment:
       NODE_ENV: production
       DATA_DIR: /data
@@ -61,6 +65,8 @@ services:
   worker:
     image: ${WORKER_IMAGE:-ghcr.io/squirrelsoft-py/dictate-worker:latest}
     restart: unless-stopped
+    dns:
+      - 127.0.0.11
     environment:
       NODE_ENV: production
       DATA_DIR: /data
