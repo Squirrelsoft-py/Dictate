@@ -23,6 +23,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /tmp/deps /app
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN mkdir -p /data && chown node:node /data
 
 EXPOSE 3001
 
@@ -30,5 +34,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
   CMD wget -q --tries=1 --spider http://localhost:3001/health || exit 1
 
 USER node
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["npx", "--no-install", "tsx", "src/index.ts"]

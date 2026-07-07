@@ -23,7 +23,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /tmp/deps /app
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN mkdir -p /data && chown node:node /data
 
 USER node
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["npx", "--no-install", "tsx", "src/index.ts"]
