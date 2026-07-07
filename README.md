@@ -169,6 +169,33 @@ docker volume rm dictate_redis_data
 docker compose up -d
 ```
 
+**Containers can't resolve each other (`EAI_AGAIN`, `ENOTFOUND`)**
+If you see errors like `[redis] error: getaddrinfo EAI_AGAIN redis` or `getaddrinfo ENOTFOUND api`, your host's DNS resolver is misconfigured for Docker. This is a **host issue**, not a Dictate issue. The fix is on the host, not in `docker-compose.yml`.
+
+Most common cause: **systemd-resolved** is exposing `127.0.0.53` as the nameserver inside containers, but the stub isn't actually reachable from the container's network namespace. This happens with:
+- Tailscale (which adds its own search domain to resolv.conf)
+- rootless Docker under certain configs
+- Some Linux distros that enable systemd-resolved by default
+
+**Fix on the host (Ubuntu/Debian):**
+```bash
+# Option A: tell systemd-resolved to not interfere
+sudo mkdir -p /etc/systemd/resolved.conf.d
+echo -e "[Resolve]\nDNSStubListener=no" | sudo tee /etc/systemd/resolved.conf.d/no-stub.conf
+sudo systemctl restart systemd-resolved
+
+# Option B: configure Docker daemon to use specific nameservers
+sudo mkdir -p /etc/docker
+echo '{"dns": ["1.1.1.1", "8.8.8.8"]}' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+```
+
+After fixing the host DNS, recreate the stack:
+```bash
+docker compose down
+docker compose up -d
+```
+
 ---
 
 ## CI/CD

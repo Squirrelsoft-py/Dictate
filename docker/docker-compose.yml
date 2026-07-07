@@ -7,33 +7,12 @@ name: dictate
 # To build from source instead of pulling:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 
-# Why we pin dns / dns_search / dns_opt:
-# On hosts with systemd-resolved (most modern Linux distros, Tailscale,
-# rootless Docker under certain setups), /etc/resolv.conf inside containers
-# points to 127.0.0.53 (the host's systemd-resolved stub), which is NOT
-# reachable from the container's network namespace. Result: every
-# service-name lookup (redis, api, worker, ...) fails with EAI_AGAIN.
-#
-# Docker's embedded DNS at 127.0.0.11 is what resolves compose service
-# names for user-defined networks. Pinning dns: 127.0.0.11 forces its
-# use regardless of host config.
-#
-# dns_search: .    -> empty search list so "redis" is looked up as-is,
-#                    not "redis.tail620d5.ts.net" first.
-# dns_opt ndots:0  -> never try the FQDN form first; try the literal
-#                    short hostname and let Docker DNS resolve it.
-
 services:
   web:
     image: ${WEB_IMAGE:-ghcr.io/squirrelsoft-py/dictate-web:latest}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
-    dns:
-      - 127.0.0.11
-    dns_search: []
-    dns_opt:
-      - "ndots:0"
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
@@ -48,11 +27,6 @@ services:
     restart: unless-stopped
     ports:
       - "${API_PORT:-3001}:3001"
-    dns:
-      - 127.0.0.11
-    dns_search: []
-    dns_opt:
-      - "ndots:0"
     environment:
       NODE_ENV: production
       DATA_DIR: /data
@@ -87,11 +61,6 @@ services:
   worker:
     image: ${WORKER_IMAGE:-ghcr.io/squirrelsoft-py/dictate-worker:latest}
     restart: unless-stopped
-    dns:
-      - 127.0.0.11
-    dns_search: []
-    dns_opt:
-      - "ndots:0"
     environment:
       NODE_ENV: production
       DATA_DIR: /data
