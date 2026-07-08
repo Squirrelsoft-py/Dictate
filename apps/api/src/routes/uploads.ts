@@ -132,8 +132,11 @@ export function uploadRoutes(env: Env, redis: Redis, auth: Auth) {
         llmModel: upload.llmModel ?? undefined,
       },
       {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
+        // ASR models (Whisper) can take a few minutes to load on first
+        // boot of the sidecar. Long backoff + many retries so a single
+        // upload doesn't fail permanently while the model warms up.
+        attempts: 8,
+        backoff: { type: 'exponential', delay: 30000 },
         removeOnComplete: { age: 3600, count: 1000 },
         removeOnFail: { age: 86400 },
       },

@@ -151,9 +151,17 @@ export async function uploadFile(
   if (!initRes.ok) throw new Error(`Init failed: ${initRes.status}`);
   const { id, uploadUrl } = await initRes.json();
 
+  // Upload directly to the api, not through Next.js — Next.js's
+  // request body parser has a 10MB limit, but audio files can be
+  // hundreds of MB or even GB. The api has no such limit.
+  const apiOrigin =
+    (typeof process !== 'undefined' &&
+      process.env?.NEXT_PUBLIC_API_URL) ||
+    (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : '');
+
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${API_BASE.replace('/api', '')}${uploadUrl}`);
+    xhr.open('PUT', `${apiOrigin}${uploadUrl}`);
     xhr.withCredentials = true;
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
     xhr.upload.onprogress = (e) => {

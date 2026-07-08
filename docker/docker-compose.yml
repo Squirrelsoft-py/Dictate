@@ -94,7 +94,7 @@ services:
       redis:
         condition: service_healthy
       asr:
-        condition: service_started
+        condition: service_healthy
     networks: [dictate]
 
   redis:
