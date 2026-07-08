@@ -4,6 +4,13 @@ name: dictate
 # Works in any host (Docker CLI, Dockge, Portainer, Cosmos, etc.) without
 # the surrounding repo.
 #
+# Configuration model:
+#   - Defaults are inline in this file via ${VAR:-default} — the stack
+#     boots without a .env file at all.
+#   - .env is purely an override layer: any var defined in .env replaces
+#     the corresponding default here. Secrets and per-deployment values
+#     (API keys, auth secret, custom ports) live only in .env.
+#
 # To build from source instead of pulling:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 
@@ -29,14 +36,16 @@ services:
       - "${API_PORT:-3001}:3001"
     environment:
       NODE_ENV: production
-      DATA_DIR: /data
-      REDIS_URL: redis://redis:6379
+      DATA_DIR: ${DATA_DIR:-/data}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       LOCAL_ASR_ENDPOINT: ${LOCAL_ASR_ENDPOINT:-http://asr:9000}
       ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-local}
       ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-local}
       ADMIN_LLM_PROVIDER: ${ADMIN_LLM_PROVIDER:-openai-compat}
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2147483648}
+      UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-0}
       OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
       OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-}
@@ -63,12 +72,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATA_DIR: /data
-      REDIS_URL: redis://redis:6379
+      DATA_DIR: ${DATA_DIR:-/data}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       LOCAL_ASR_ENDPOINT: ${LOCAL_ASR_ENDPOINT:-http://asr:9000}
       ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-local}
       ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-local}
       ADMIN_LLM_PROVIDER: ${ADMIN_LLM_PROVIDER:-openai-compat}
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2147483648}
+      UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-0}
       OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
       OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-}
