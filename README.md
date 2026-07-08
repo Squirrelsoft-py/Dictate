@@ -161,7 +161,18 @@ docker volume prune          # remove unused volumes (deletes data!)
 **`asr` healthcheck timing out at startup**
 Whisper downloads the model on first request to `/asr`, not on container start. So the HTTP server is up immediately, but the first 1-3 transcribe requests will fail while the ~3 GB model downloads. The worker is configured to retry up to 8 times with exponential backoff (30s, 60s, 120s, …), so a single upload eventually succeeds as soon as the model finishes loading.
 
-To **pre-load the model** so your first upload doesn't pay the download cost:
+**`asr` stuck with `re-downloading the file` warning and no network traffic**
+The asr's `/root/.cache/whisper/` volume has a stale model file (often from a previous `large-v3` download with a SHA256 mismatch). The asr keeps re-downloading, gets nothing, and never serves. Wipe the cache and use a smaller model:
+
+```bash
+docker compose down
+docker volume rm dictate_asr_models
+# Set in .env (or just edit the compose default):
+echo 'ASR_MODEL=small' >> .env
+docker compose up -d
+```
+
+Then **pre-load the model** so your first upload doesn't pay the download cost:
 ```bash
 # Triggers a transcribe of a 1-second silent clip — forces the
 # model download so the real uploads start fast.
@@ -171,11 +182,12 @@ docker exec dictate-asr-1 \
      wget --post-file=/tmp/silent.wav -qO- "http://localhost:9000/asr?task=transcribe&output=json"
 ```
 
-Or use a smaller model that's much faster to download:
+Model size tradeoff (set in `.env`):
 ```env
-ASR_MODEL=medium      # ~1.5 GB instead of 3 GB
-ASR_MODEL=small      # ~500 MB
-ASR_MODEL=base       # ~150 MB
+ASR_MODEL=base       # ~150 MB — fast, OK accuracy
+ASR_MODEL=small      # ~500 MB — good for meetings/lectures (default)
+ASR_MODEL=medium     # ~1.5 GB — better accuracy, slower first boot
+ASR_MODEL=large-v3   # ~3 GB — best, but downloads can stall on flaky networks
 ```
 
 **`dictate-redis-1` unhealthy after restart with AOF error**

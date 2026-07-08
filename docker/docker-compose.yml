@@ -115,15 +115,18 @@ services:
     image: ${ASR_IMAGE:-onerahmet/openai-whisper-asr-webservice:latest}
     restart: unless-stopped
     ports:
-      - "${ASR_PORT:-9000}:9000"
+      - "${ASR_PORT:-9000}:9000}"
     environment:
-      ASR_MODEL: ${ASR_MODEL:-large-v3}
+      # Default to 'small' (~500 MB) instead of 'large-v3' (~3 GB).
+      # large-v3 takes minutes to download on first boot and re-downloads
+      # on SHA256 mismatch, which has been observed to stall. 'small' is
+      # plenty accurate for meetings/lectures and downloads in seconds.
+      # Override in .env: ASR_MODEL=medium | large-v3
+      ASR_MODEL: ${ASR_MODEL:-small}
       ASR_ENGINE: ${ASR_ENGINE:-openai_whisper}
       ASR_DIARIZATION: ${ASR_DIARIZATION:-true}
     volumes:
       - asr_models:/root/.cache/huggingface
-    # start_period generous because Whisper large-v3 downloads the
-    # model on first request (~3GB, 1-5 min on a typical link).
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
