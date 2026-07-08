@@ -18,24 +18,51 @@ export function createLocalASRProvider(endpoint: string): ASRProvider {
     );
   }
 
+  const rootUrl = new URL('/', endpoint);
+  const asrUrl = new URL('/asr', endpoint);
+
+  async function ping(timeoutMs = 3000): Promise<boolean> {
+    try {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), timeoutMs);
+      const res = await undiciFetch(rootUrl.toString(), { signal: ac.signal });
+      clearTimeout(timer);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   return {
     id: 'local',
     displayName: 'Local (Whisper + pyannote)',
     async transcribe(input: ASRInput): Promise<ASROutput> {
-      const url = new URL('/asr', endpoint);
-      url.searchParams.set('task', 'transcribe');
-      url.searchParams.set('output', 'json');
-      url.searchParams.set('diarization', 'true');
-      url.searchParams.set('encode', 'true');
-      if (input.language) url.searchParams.set('language', input.language);
-      if (input.model) url.searchParams.set('model', input.model);
+      // The asr sidecar starts a tiny HTTP server immediately, but
+      // the Whisper model is downloaded on the first /asr request
+      // (~3GB, 1-5 min on a typical link). Pinging first gives a fast,
+      // clear "not ready" signal instead of a generic fetch failure
+      // when the model is still loading — so BullMQ can retry with
+      // the right backoff.
+      const up = await ping();
+      if (!up) {
+        throw new LocalASRError(
+          `Local ASR not reachable at ${rootUrl} (model may still be loading)`,
+        );
+      }
+
+      asrUrl.searchParams.set('task', 'transcribe');
+      asrUrl.searchParams.set('output', 'json');
+      asrUrl.searchParams.set('diarization', 'true');
+      asrUrl.searchParams.set('encode', 'true');
+      if (input.language) asrUrl.searchParams.set('language', input.language);
+      if (input.model) asrUrl.searchParams.set('model', input.model);
 
       const fileBuffer = await readFile(input.filePath);
       const form = new FormData();
       const blob = new Blob([fileBuffer], { type: input.mime || 'audio/mpeg' });
       form.set('audio_file', blob, basename(input.filePath));
 
-      const res = await undiciFetch(url.toString(), {
+      const res = await undiciFetch(asrUrl.toString(), {
         method: 'POST',
         body: form,
       });
