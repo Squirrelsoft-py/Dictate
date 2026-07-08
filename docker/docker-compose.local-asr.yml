@@ -1,0 +1,61 @@
+# Local Whisper sidecar override.
+# Adds the onerahmet/whisper-asr-webservice container and flips the
+# default ASR provider to use it. Use this if you have enough disk /
+# memory and want fully self-hosted transcription.
+#
+# Combine with the base compose:
+#   docker compose -f docker-compose.yml -f docker-compose.local-asr.yml up -d
+#
+# Requirements:
+#   - ~3 GB free disk (or less for ASR_MODEL=small/medium)
+#   - ~2 GB RAM (small) / 5 GB (medium) / 10 GB (large-v3)
+#   - Outbound HTTPS to huggingface.co (model download) and
+#     github.com (pyannote audio model). On restricted networks
+#     the download can stall — switch to a cloud ASR instead.
+#
+# To pin a different model: ASR_MODEL=small|medium|large-v3 in .env.
+# Disable diarization if pyannote's download is the slow part:
+# ASR_DIARIZATION=false
+
+services:
+  api:
+    environment:
+      ADMIN_ASR_PROVIDER: local
+      ADMIN_DIARIZATION_PROVIDER: local
+    depends_on:
+      asr:
+        condition: service_healthy
+
+  worker:
+    environment:
+      ADMIN_ASR_PROVIDER: local
+      ADMIN_DIARIZATION_PROVIDER: local
+    depends_on:
+      asr:
+        condition: service_healthy
+
+  asr:
+    image: ${ASR_IMAGE:-onerahmet/openai-whisper-asr-webservice:latest}
+    restart: unless-stopped
+    ports:
+      - "${ASR_PORT:-9000}:9000"
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_ENGINE: ${ASR_ENGINE:-openai_whisper}
+      ASR_DIARIZATION: ${ASR_DIARIZATION:-true}
+    volumes:
+      - asr_models:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 600s
+    networks: [dictate]
+
+volumes:
+  asr_models:
+
+networks:
+  dictate:
+    driver: bridge
