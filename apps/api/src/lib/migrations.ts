@@ -8,16 +8,22 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
+        email_verified INTEGER NOT NULL DEFAULT 0,
         name TEXT,
-        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        image TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
       );
 
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token TEXT NOT NULL UNIQUE,
         expires_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
       );
 
       CREATE TABLE IF NOT EXISTS uploads (
@@ -126,6 +132,34 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
   },
 ];
 
+const COLUMN_MIGRATIONS: Array<{
+  name: string;
+  table: string;
+  columns: Array<{ column: string; ddl: string }>;
+  indexSql?: string;
+}> = [
+  {
+    name: 'add_better_auth_user_columns',
+    table: 'users',
+    columns: [
+      { column: 'email_verified', ddl: 'INTEGER NOT NULL DEFAULT 0' },
+      { column: 'image', ddl: 'TEXT' },
+      { column: 'updated_at', ddl: 'INTEGER NOT NULL DEFAULT (unixepoch())' },
+    ],
+  },
+  {
+    name: 'add_better_auth_session_columns',
+    table: 'sessions',
+    columns: [
+      { column: 'token', ddl: "TEXT NOT NULL DEFAULT ''" },
+      { column: 'ip_address', ddl: 'TEXT' },
+      { column: 'user_agent', ddl: 'TEXT' },
+      { column: 'updated_at', ddl: 'INTEGER NOT NULL DEFAULT (unixepoch())' },
+    ],
+    indexSql: 'CREATE UNIQUE INDEX IF NOT EXISTS sessions_token_idx ON sessions(token)',
+  },
+];
+
 export function runMigrations(env: Env) {
   const db = getDb(env);
   const sqlite = (db as any)._sqlite as import('better-sqlite3').Database;
@@ -146,6 +180,31 @@ export function runMigrations(env: Env) {
       sqlite.prepare('INSERT INTO _migrations (name) VALUES (?)').run(m.name);
       sqlite.exec('COMMIT');
       console.log(`[migrations] applied: ${m.name}`);
+    } catch (err) {
+      sqlite.exec('ROLLBACK');
+      throw err;
+    }
+  }
+  for (const cm of COLUMN_MIGRATIONS) {
+    if (applied.has(cm.name)) continue;
+    const existing = new Set(
+      sqlite
+        .prepare(`SELECT name FROM pragma_table_info('${cm.table}')`)
+        .all()
+        .map((r: any) => r.name),
+    );
+    let added = 0;
+    sqlite.exec('BEGIN');
+    try {
+      for (const col of cm.columns) {
+        if (existing.has(col.column)) continue;
+        sqlite.exec(`ALTER TABLE ${cm.table} ADD COLUMN ${col.column} ${col.ddl}`);
+        added++;
+      }
+      if (cm.indexSql) sqlite.exec(cm.indexSql);
+      sqlite.prepare('INSERT INTO _migrations (name) VALUES (?)').run(cm.name);
+      sqlite.exec('COMMIT');
+      console.log(`[migrations] applied: ${cm.name} (${added} columns added)`);
     } catch (err) {
       sqlite.exec('ROLLBACK');
       throw err;

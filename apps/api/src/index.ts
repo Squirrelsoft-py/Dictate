@@ -33,7 +33,7 @@ app.use(
 
 app.get('/health', (c) => c.json({ ok: true, name: 'dictate-api' }));
 
-app.route('/', authRoutes(auth));
+app.route('/api/auth', authRoutes(auth));
 app.route('/api/uploads', uploadRoutes(env, redis, auth));
 app.route('/api/tags', tagRoutes(env, auth));
 app.route('/api/speakers', speakerRoutes(env, auth));
