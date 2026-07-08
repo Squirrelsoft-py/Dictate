@@ -136,25 +136,35 @@ const COLUMN_MIGRATIONS: Array<{
   name: string;
   table: string;
   columns: Array<{ column: string; ddl: string }>;
+  drops?: string[];
   indexSql?: string;
 }> = [
   {
     name: 'add_better_auth_user_columns',
     table: 'users',
+    // SQLite ALTER TABLE ADD COLUMN requires CONSTANT defaults — can't
+    // use unixepoch(). So we add columns as NULLABLE; the Drizzle
+    // schema and app code treat them as nullable on read and set
+    // them as needed.
     columns: [
-      { column: 'email_verified', ddl: 'INTEGER NOT NULL DEFAULT 0' },
+      { column: 'email_verified', ddl: 'INTEGER' },
       { column: 'image', ddl: 'TEXT' },
-      { column: 'updated_at', ddl: 'INTEGER NOT NULL DEFAULT (unixepoch())' },
+      { column: 'updated_at', ddl: 'INTEGER' },
     ],
+    // Old v1 schema had password_hash on users. Better-Auth stores
+    // credentials in accounts.password, so this column is dead weight
+    // AND a footgun: any new code that still references it gets a
+    // NOT NULL violation. Drop it on existing DBs.
+    drops: ['password_hash'],
   },
   {
     name: 'add_better_auth_session_columns',
     table: 'sessions',
     columns: [
-      { column: 'token', ddl: "TEXT NOT NULL DEFAULT ''" },
+      { column: 'token', ddl: 'TEXT' },
       { column: 'ip_address', ddl: 'TEXT' },
       { column: 'user_agent', ddl: 'TEXT' },
-      { column: 'updated_at', ddl: 'INTEGER NOT NULL DEFAULT (unixepoch())' },
+      { column: 'updated_at', ddl: 'INTEGER' },
     ],
     indexSql: 'CREATE UNIQUE INDEX IF NOT EXISTS sessions_token_idx ON sessions(token)',
   },
@@ -194,6 +204,7 @@ export function runMigrations(env: Env) {
         .map((r: any) => r.name),
     );
     let added = 0;
+    let dropped = 0;
     sqlite.exec('BEGIN');
     try {
       for (const col of cm.columns) {
@@ -201,10 +212,17 @@ export function runMigrations(env: Env) {
         sqlite.exec(`ALTER TABLE ${cm.table} ADD COLUMN ${col.column} ${col.ddl}`);
         added++;
       }
+      for (const col of cm.drops ?? []) {
+        if (!existing.has(col)) continue;
+        sqlite.exec(`ALTER TABLE ${cm.table} DROP COLUMN ${col}`);
+        dropped++;
+      }
       if (cm.indexSql) sqlite.exec(cm.indexSql);
       sqlite.prepare('INSERT INTO _migrations (name) VALUES (?)').run(cm.name);
       sqlite.exec('COMMIT');
-      console.log(`[migrations] applied: ${cm.name} (${added} columns added)`);
+      console.log(
+        `[migrations] applied: ${cm.name} (${added} added, ${dropped} dropped)`,
+      );
     } catch (err) {
       sqlite.exec('ROLLBACK');
       throw err;
