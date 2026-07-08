@@ -159,7 +159,24 @@ docker volume prune          # remove unused volumes (deletes data!)
 ```
 
 **`asr` healthcheck timing out at startup**
-Whisper downloads the model on first start (~3 GB for `large-v3`). The first boot can take 1-3 minutes. `start_period` is set to 60s; if your network is slow, increase `ASR_MODEL` to a smaller variant (`medium`, `small`) for faster first-run.
+Whisper downloads the model on first request to `/asr`, not on container start. So the HTTP server is up immediately, but the first 1-3 transcribe requests will fail while the ~3 GB model downloads. The worker is configured to retry up to 8 times with exponential backoff (30s, 60s, 120s, …), so a single upload eventually succeeds as soon as the model finishes loading.
+
+To **pre-load the model** so your first upload doesn't pay the download cost:
+```bash
+# Triggers a transcribe of a 1-second silent clip — forces the
+# model download so the real uploads start fast.
+docker exec dictate-asr-1 \
+  wget -qO /tmp/silent.wav "https://github.com/anars/blank-audio/raw/master/1-second-of-silence.mp3" \
+  && docker exec dictate-asr-1 \
+     wget --post-file=/tmp/silent.wav -qO- "http://localhost:9000/asr?task=transcribe&output=json"
+```
+
+Or use a smaller model that's much faster to download:
+```env
+ASR_MODEL=medium      # ~1.5 GB instead of 3 GB
+ASR_MODEL=small      # ~500 MB
+ASR_MODEL=base       # ~150 MB
+```
 
 **`dictate-redis-1` unhealthy after restart with AOF error**
 Stale AOF file. Wipe the Redis volume (loses any in-flight jobs but no other data):

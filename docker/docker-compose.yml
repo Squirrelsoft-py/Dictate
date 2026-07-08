@@ -122,12 +122,14 @@ services:
       ASR_DIARIZATION: ${ASR_DIARIZATION:-true}
     volumes:
       - asr_models:/root/.cache/huggingface
+    # start_period generous because Whisper large-v3 downloads the
+    # model on first request (~3GB, 1-5 min on a typical link).
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
+      timeout: 10s
+      retries: 30
+      start_period: 600s
     networks: [dictate]
 
 volumes:
