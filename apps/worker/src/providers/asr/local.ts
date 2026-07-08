@@ -5,8 +5,12 @@ import type { ASRProvider, ASRInput, ASROutput } from '@dictate/shared/providers
 import type { Segment } from '@dictate/shared/schemas';
 
 export class LocalASRError extends Error {
-  constructor(message: string, public status?: number) {
-    super(message);
+  constructor(
+    message: string,
+    public status?: number,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
     this.name = 'LocalASRError';
   }
 }
@@ -21,15 +25,21 @@ export function createLocalASRProvider(endpoint: string): ASRProvider {
   const rootUrl = new URL('/', endpoint);
   const asrUrl = new URL('/asr', endpoint);
 
-  async function ping(timeoutMs = 3000): Promise<boolean> {
+  // 10-minute hard cap on a single transcribe. A CPU small-model
+  // transcribe of an hour of audio is ~5-15 min. Anything longer
+  // means the asr is wedged on a hung request and we should fail
+  // fast so BullMQ can retry on a different worker / after restart.
+  const TRANSCRIBE_TIMEOUT_MS = 10 * 60 * 1000;
+
+  async function ping(timeoutMs = 3000): Promise<{ up: boolean; status?: number; cause?: unknown }> {
     try {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), timeoutMs);
       const res = await undiciFetch(rootUrl.toString(), { signal: ac.signal });
       clearTimeout(timer);
-      return res.ok;
-    } catch {
-      return false;
+      return { up: res.ok, status: res.status };
+    } catch (err) {
+      return { up: false, cause: err };
     }
   }
 
@@ -37,19 +47,22 @@ export function createLocalASRProvider(endpoint: string): ASRProvider {
     id: 'local',
     displayName: 'Local (Whisper + pyannote)',
     async transcribe(input: ASRInput): Promise<ASROutput> {
-      // The asr sidecar starts a tiny HTTP server immediately, but
-      // the Whisper model is downloaded on the first /asr request
-      // (~3GB, 1-5 min on a typical link). Pinging first gives a fast,
-      // clear "not ready" signal instead of a generic fetch failure
-      // when the model is still loading — so BullMQ can retry with
-      // the right backoff.
-      const up = await ping();
-      if (!up) {
+      // Step 1: is the server alive at all? The asr sidecar's HTTP
+      // server starts immediately, but the Whisper model is downloaded
+      // on the first /asr request. A clean "not ready" signal here
+      // gives BullMQ a clean retry instead of a generic fetch failure.
+      const health = await ping();
+      if (!health.up) {
         throw new LocalASRError(
-          `Local ASR not reachable at ${rootUrl} (model may still be loading)`,
+          `Local ASR not reachable at ${rootUrl} (status=${health.status ?? 'unreachable'})`,
+          health.status,
         );
       }
 
+      // Step 2: build the transcribe request.
+      // Re-set params each call since asrUrl.searchParams is shared
+      // (URL.searchParams persists across .set() calls).
+      asrUrl.search = '';
       asrUrl.searchParams.set('task', 'transcribe');
       asrUrl.searchParams.set('output', 'json');
       asrUrl.searchParams.set('diarization', 'true');
@@ -57,25 +70,64 @@ export function createLocalASRProvider(endpoint: string): ASRProvider {
       if (input.language) asrUrl.searchParams.set('language', input.language);
       if (input.model) asrUrl.searchParams.set('model', input.model);
 
-      const fileBuffer = await readFile(input.filePath);
+      // Read the file. We bound this with a timeout too so a missing
+      // or unreadable file fails fast instead of hanging the worker.
+      let fileBuffer: Buffer;
+      try {
+        fileBuffer = await readFile(input.filePath);
+      } catch (err) {
+        throw new LocalASRError(
+          `Cannot read audio file ${input.filePath}: ${(err as Error).message}`,
+          undefined,
+          { cause: err },
+        );
+      }
+
       const form = new FormData();
       const blob = new Blob([fileBuffer], { type: input.mime || 'audio/mpeg' });
       form.set('audio_file', blob, basename(input.filePath));
 
-      const res = await undiciFetch(asrUrl.toString(), {
-        method: 'POST',
-        body: form,
-      });
+      // Step 3: POST with a hard timeout. The asr with a single
+      // uvicorn worker can only process one request at a time, so a
+      // hung transcribe blocks everything. Timeout ensures we fail
+      // fast and let BullMQ retry.
+      let res: Response;
+      try {
+        res = await undiciFetch(asrUrl.toString(), {
+          method: 'POST',
+          body: form,
+          signal: AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS),
+        });
+      } catch (err) {
+        const msg = (err as Error).name === 'TimeoutError'
+          ? `transcribe timed out after ${TRANSCRIBE_TIMEOUT_MS / 1000}s (asr is busy or wedged — try fewer parallel uploads)`
+          : `network error reaching ${asrUrl}: ${(err as Error).message}`;
+        throw new LocalASRError(msg, undefined, { cause: err });
+      }
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new LocalASRError(
-          `Local ASR failed: ${res.status} ${res.statusText} — ${text.slice(0, 200)}`,
+          `Local ASR ${res.status} ${res.statusText} — ${text.slice(0, 300)}`,
           res.status,
         );
       }
 
-      const data: any = await res.json();
+      // Step 4: parse the response. If the asr returns malformed
+      // JSON (model half-loaded, partial download, etc.) throw
+      // a clear error rather than letting the pipeline fail later
+      // with a confusing "undefined.segments" error.
+      let data: any;
+      try {
+        data = await res.json();
+      } catch (err) {
+        throw new LocalASRError(
+          `Local ASR returned non-JSON response (status ${res.status})`,
+          res.status,
+          { cause: err },
+        );
+      }
+
       return normalizeWhisperAsrWebservice(data);
     },
   };

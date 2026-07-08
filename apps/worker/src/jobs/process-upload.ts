@@ -57,11 +57,22 @@ export function startWorker(env: Env) {
         });
 
         const asr = createASRProviderFromEnv(env, { id: data.asrProvider });
+        console.log(
+          `[worker] transcribing upload ${data.uploadId} via ${data.asrProvider} ` +
+            `(file: ${data.filePath})`,
+        );
+        const asrStartedAt = Date.now();
         const asrResult = await asr.transcribe({
           filePath: data.filePath,
           mime: upload.mime,
           model: data.asrModel,
         });
+        console.log(
+          `[worker] upload ${data.uploadId} transcribed: ` +
+            `${asrResult.segments.length} segments ` +
+            `(${(asrResult.fullText ?? '').length} chars) in ` +
+            `${((Date.now() - asrStartedAt) / 1000).toFixed(1)}s`,
+        );
 
         let segments: Segment[] = asrResult.segments;
         const inlineTurns: SpeakerTurn[] | undefined = asrResult.turns;

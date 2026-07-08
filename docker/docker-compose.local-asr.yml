@@ -7,15 +7,19 @@
 #   docker compose -f docker-compose.yml -f docker-compose.local-asr.yml up -d
 #
 # Requirements:
-#   - ~3 GB free disk (or less for ASR_MODEL=small/medium)
-#   - ~2 GB RAM (small) / 5 GB (medium) / 10 GB (large-v3)
-#   - Outbound HTTPS to huggingface.co (model download) and
-#     github.com (pyannote audio model). On restricted networks
-#     the download can stall — switch to a cloud ASR instead.
+#   - Disk for the Whisper model (~500 MB small, ~1.5 GB medium, ~3 GB large-v3)
+#   - RAM = ASR_WORKERS * (model RAM):
+#       small:    ~1 GB  per worker (FP32 CPU)
+#       medium:   ~5 GB  per worker
+#       large-v3: ~6 GB  per worker
+#   - Outbound HTTPS to huggingface.co and github.com (model downloads
+#     on first run; resume is built into urllib but slow networks
+#     benefit from a smaller model).
 #
-# To pin a different model: ASR_MODEL=small|medium|large-v3 in .env.
-# Disable diarization if pyannote's download is the slow part:
-# ASR_DIARIZATION=false
+# Knobs (set in .env):
+#   ASR_MODEL        = small (default) | medium | large-v3
+#   ASR_WORKERS      = number of parallel transcribe processes
+#   ASR_MEMORY_LIMIT = docker memory cap for the asr container
 
 services:
   api:
@@ -35,22 +39,32 @@ services:
         condition: service_healthy
 
   asr:
-    image: ${ASR_IMAGE:-onerahmet/openai-whisper-asr-webservice:latest}
+    build:
+      context: ..
+      dockerfile: docker/asr.Dockerfile
+    image: dictate-asr:local
     restart: unless-stopped
     ports:
-      - "${ASR_PORT:-9000}:9000"
+      - "${ASR_PORT:-9000}:9000}"
     environment:
       ASR_MODEL: ${ASR_MODEL:-small}
-      ASR_ENGINE: ${ASR_ENGINE:-openai_whisper}
+      ASR_ENGINE: openai_whisper
       ASR_DIARIZATION: ${ASR_DIARIZATION:-true}
+      UVICORN_WORKERS: ${ASR_WORKERS:-2}
+      OMP_NUM_THREADS: "1"
+    deploy:
+      resources:
+        limits:
+          memory: ${ASR_MEMORY_LIMIT:-5G}
     volumes:
+      - asr_models:/root/.cache/whisper
       - asr_models:/root/.cache/huggingface
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/docs >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 30
-      start_period: 600s
+      start_period: 120s
     networks: [dictate]
 
 volumes:
