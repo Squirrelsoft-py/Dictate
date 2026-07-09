@@ -1,26 +1,11 @@
 name: dictate
 
-# Default compose: pulls prebuilt images from GHCR. No source files needed.
-# Works in any host (Docker CLI, Dockge, Portainer, Cosmos, etc.) without
-# the surrounding repo.
+# Single compose file. Pulls all images from registries. No build step.
+# Works in any host (Docker CLI, Dockge, Portainer, Cosmos, etc.).
 #
-# Configuration model:
-#   - Defaults are inline in this file via ${VAR:-default} — the stack
-#     boots without a .env file at all.
-#   - .env is purely an override layer: any var defined in .env replaces
-#     the corresponding default here. Secrets and per-deployment values
-#     (API keys, auth secret, custom ports) live only in .env.
-#
-# To build from source instead of pulling:
-#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-#
-# To add the local Whisper sidecar (only needed if ADMIN_ASR_PROVIDER=local):
-#   docker compose -f docker-compose.yml -f docker-compose.local-asr.yml up -d
-#
-#   Without the sidecar, set ADMIN_ASR_PROVIDER=openai-whisper (or groq,
-#   deepgram, etc.) in .env so transcriptions use a cloud API instead.
-#   That's the recommended setup for most users — the local Whisper
-#   model is 500MB-3GB and downloads can stall on flaky networks.
+# Configuration:
+#   - Defaults inline via ${VAR:-default}; the stack boots with no .env.
+#   - .env is an override layer. Put secrets and per-deployment values there.
 
 services:
   web:
@@ -49,8 +34,8 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       LOCAL_ASR_ENDPOINT: ${LOCAL_ASR_ENDPOINT:-http://asr:9000}
-      ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-openai-whisper}
-      ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-deepgram}
+      ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-local}
+      ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-local}
       ADMIN_LLM_PROVIDER: ${ADMIN_LLM_PROVIDER:-openai-compat}
       UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2147483648}
       UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-0}
@@ -66,6 +51,8 @@ services:
       - dictate_data:/data
     depends_on:
       redis:
+        condition: service_healthy
+      asr:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
@@ -83,8 +70,8 @@ services:
       DATA_DIR: ${DATA_DIR:-/data}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       LOCAL_ASR_ENDPOINT: ${LOCAL_ASR_ENDPOINT:-http://asr:9000}
-      ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-openai-whisper}
-      ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-deepgram}
+      ADMIN_ASR_PROVIDER: ${ADMIN_ASR_PROVIDER:-local}
+      ADMIN_DIARIZATION_PROVIDER: ${ADMIN_DIARIZATION_PROVIDER:-local}
       ADMIN_LLM_PROVIDER: ${ADMIN_LLM_PROVIDER:-openai-compat}
       UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2147483648}
       UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-0}
@@ -100,6 +87,8 @@ services:
       - dictate_data:/data
     depends_on:
       redis:
+        condition: service_healthy
+      asr:
         condition: service_healthy
     networks: [dictate]
 
@@ -117,9 +106,37 @@ services:
       start_period: 15s
     networks: [dictate]
 
+  asr:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    restart: unless-stopped
+    ports:
+      - "${ASR_PORT:-9000}:9000"
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-large-v3}
+      ASR_ENGINE: ${ASR_ENGINE:-openai_whisper}
+      ASR_DIARIZATION: ${ASR_DIARIZATION:-true}
+      HOME: /home/app
+      MPLCONFIGDIR: /home/app/.config/matplotlib
+      XDG_CACHE_HOME: /home/app/.cache
+    deploy:
+      resources:
+        limits:
+          memory: ${ASR_MEMORY_LIMIT:-8G}
+    volumes:
+      - asr_models:/home/app/.cache/whisper
+      - asr_models:/home/app/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/docs >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 600s
+    networks: [dictate]
+
 volumes:
   dictate_data:
   redis_data:
+  asr_models:
 
 networks:
   dictate:
